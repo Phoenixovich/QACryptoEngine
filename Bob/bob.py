@@ -9,14 +9,18 @@ import os
 HOST = '127.0.0.1'
 PORT = 65432
 
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../extras/qkd_config.txt")
 n = 32  # fallback default
+error_bits = 5  # fallback default
 try:
-    with open("extras/qkd_config.txt") as f:
+    with open(config_path) as f:
         for line in f:
             if line.startswith("#") or not line.strip():
                 continue
             if line.startswith("num_bits="):
                 n = int(line.strip().split("=")[1])
+            if line.startswith("error_bits="):
+                error_bits = int(line.strip().split("=")[1])
 except Exception:
     pass
 
@@ -82,6 +86,8 @@ def main():
             if data.startswith('SAMPLE:'):
                 # Receive sample indices from Alice and prepare the sample
                 sample_indices = list(map(int, data[len('SAMPLE:'):].strip().split(',')))
+                # Only use up to error_bits if needed (defensive)
+                sample_indices = sample_indices[:error_bits]
                 sample_bits = [sifted_key[i] for i in sample_indices]
 
                 # Send the sample back to Alice
@@ -101,12 +107,9 @@ def main():
         fernet_key = base64.urlsafe_b64encode(hashed_key[:32])
 
         # Write it to a file
-        with open("final_key_bob.txt", "w") as f:
-            f.write("".join(final_key))
-            print("Final key saved to final_key_bob.txt")
-            
         key_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "final_key_bob.txt")
         with open(key_path, "w") as f:
             f.write("".join(final_key))
+            print("Final key saved to final_key_bob.txt")
 if __name__ == "__main__":
     main()

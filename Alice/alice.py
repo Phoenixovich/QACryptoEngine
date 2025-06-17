@@ -5,11 +5,37 @@ import hashlib
 from cryptography.fernet import Fernet
 import base64
 import os
+import cirq
 
 HOST = '127.0.0.1'
 PORT = 65432
 
+def prepare_qubit(bit, basis):
+    q = cirq.LineQubit(0)
+    circuit = cirq.Circuit()
+    if bit == 1:
+        circuit.append(cirq.X(q))
+    if basis == 'X':
+        circuit.append(cirq.H(q))
+    # No measurement here; just return the circuit and qubit
+    return circuit, q
+
 def main():
+    # Read config
+    n = 32  # fallback default
+    ERROR_CHECK_BITS = 5  # fallback default
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../extras/qkd_config.txt")
+    try:
+        with open(config_path) as f:
+            for line in f:
+                if line.startswith("#") or not line.strip():
+                    continue
+                if line.startswith("num_bits="):
+                    n = int(line.strip().split("=")[1])
+                if line.startswith("error_bits="):
+                    ERROR_CHECK_BITS = int(line.strip().split("=")[1])
+    except Exception:
+        pass
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((HOST, PORT))
@@ -18,21 +44,16 @@ def main():
         conn, addr = s.accept()
         with conn:
             print('Alice: Connected by', addr)
-            n = 32  # fallback default
-            try:
-                with open("extras/qkd_config.txt") as f:
-                    for line in f:
-                        if line.startswith("#") or not line.strip():
-                            continue
-                        if line.startswith("num_bits="):
-                            n = int(line.strip().split("=")[1])
-            except Exception:
-                pass
             alice_bits = [random.randint(0,1) for _ in range(n)]
             alice_bases = [random.choice(['Z', 'X']) for _ in range(n)]
-            
-            # Send bit and basis line by line
+
+            # Prepare qubits using Cirq and send basis/bit to Bob
             for bit, basis in zip(alice_bits, alice_bases):
+                circuit, q = prepare_qubit(bit, basis)
+                # Simulate the state preparation (no measurement)
+                simulator = cirq.Simulator()
+                result = simulator.simulate(circuit)
+                # For protocol, send basis and bit (as before)
                 message = f"{basis}|{bit}\n"
                 conn.sendall(message.encode('utf-8'))
                 time.sleep(0.1)
@@ -54,9 +75,7 @@ def main():
 
             # Error estimation
             sifted_key = [int(k) for k in shared_key if k != 'x']
-
-            # Select error estimation bit size
-            ERROR_CHECK_BITS = 5
+            # Use ERROR_CHECK_BITS from config
             if len(sifted_key) < ERROR_CHECK_BITS:
                 print("Not enough sifted bits for error estimation. Aborting.")
                 return
@@ -94,10 +113,9 @@ def main():
         fernet_key = base64.urlsafe_b64encode(hashed_key[:32])  # Fernet needs 32-byte key
 
         # Write it to a file
-        if final_key:  # Only write if key exists
-            key_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "final_key_alice.txt")
-            with open(key_path, "w") as f:
-                f.write("".join(final_key))
-                print("Final key saved to final_key_alice.txt")
+        key_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "final_key_alice.txt")
+        with open(key_path, "w") as f:
+            f.write("".join(final_key))
+            print("Final key saved to final_key_alice.txt")
 if __name__ == "__main__":
     main()
