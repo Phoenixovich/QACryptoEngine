@@ -1,9 +1,24 @@
 import socket
 import random
 import cirq
+import hashlib
+from cryptography.fernet import Fernet
+import base64
+import os
 
 HOST = '127.0.0.1'
 PORT = 65432
+
+n = 32  # fallback default
+try:
+    with open("extras/qkd_config.txt") as f:
+        for line in f:
+            if line.startswith("#") or not line.strip():
+                continue
+            if line.startswith("num_bits="):
+                n = int(line.strip().split("=")[1])
+except Exception:
+    pass
 
 def measure_bit(bit, alice_basis, bob_basis):
     q = cirq.LineQubit(0)
@@ -30,12 +45,12 @@ def main():
         bob_results = []
         alice_bases = []
 
-        # Receive 32 lines of data from Alice
+        # Receive n lines of data from Alice
         buffer = ""
-        while len(bob_bases) < 32:
+        while len(bob_bases) < n:
             data = s.recv(1024).decode('utf-8')
             buffer += data
-            while '\n' in buffer and len(bob_bases) < 32:
+            while '\n' in buffer and len(bob_bases) < n:
                 line, buffer = buffer.split('\n', 1)
                 if line.strip() == '':
                     continue
@@ -76,7 +91,6 @@ def main():
                 final_key = [str(sifted_key[i]) for i in range(len(sifted_key)) if i not in sample_indices]
                 print("Bob's final key: ", ''.join(final_key))
 
-        import hashlib
         # Existing: final_key is a list of '0'/'1' strings
         final_key_str = ''.join(final_key)  # e.g., "1010101..."
 
@@ -84,14 +98,15 @@ def main():
         hashed_key = hashlib.sha256(final_key_str.encode('utf-8')).digest()
 
         # Save the hashed key to a file (Fernet expects base64)
-        from cryptography.fernet import Fernet
-        import base64
-
         fernet_key = base64.urlsafe_b64encode(hashed_key[:32])
 
         # Write it to a file
-        with open("final_key_bob.txt", "wb") as f:  
-            f.write(fernet_key)
+        with open("final_key_bob.txt", "w") as f:
+            f.write("".join(final_key))
             print("Final key saved to final_key_bob.txt")
+            
+        key_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "final_key_bob.txt")
+        with open(key_path, "w") as f:
+            f.write("".join(final_key))
 if __name__ == "__main__":
     main()

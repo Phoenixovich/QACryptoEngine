@@ -1,0 +1,3 @@
+# QKD Configuration File
+num_bits=10
+error_bits=1
