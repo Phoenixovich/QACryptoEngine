@@ -101,28 +101,9 @@ python3 qkd_gui_v2.py
 
 ---
 
-## Implementation Notes
-
-- **Process Communication:**  
-  The GUI starts Alice and Bob as subprocesses and communicates with them via stdin/stdout, just like a user would in a terminal.
-- **No Port Conflicts:**  
-  The GUI ensures only one instance of each process runs at a time and kills any lingering processes before starting new ones.
-- **Device Layout:**  
-  Device images and message boxes are centered and spaced for clarity. The MITM button and label are positioned absolutely between Alice and Bob, and the MITM panel spans the communication channel.
-- **Extensible:**  
-  The code is modular and can be extended with new protocols, devices, or visualization features.
-
----
-
-## Screenshots
-
-*(Add screenshots of the GUI here for illustration.)*
-
----
-
 ## Credits
 
-- Developed by [No Cloning Allowed]
+- Developed by [No Cloning Allowed Team]
 - Quantum protocol logic inspired by standard QKD protocols (e.g., BB84)
 - GUI built with PyQt5
 
