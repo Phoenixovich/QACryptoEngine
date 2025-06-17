@@ -75,7 +75,23 @@ def main():
                 # Remove sample from final key
                 final_key = [str(sifted_key[i]) for i in range(len(sifted_key)) if i not in sample_indices]
                 print("Bob's final key: ", ''.join(final_key))
-                break
 
+        import hashlib
+        # Existing: final_key is a list of '0'/'1' strings
+        final_key_str = ''.join(final_key)  # e.g., "1010101..."
+
+        # Hash it using SHA-256
+        hashed_key = hashlib.sha256(final_key_str.encode('utf-8')).digest()
+
+        # Save the hashed key to a file (Fernet expects base64)
+        from cryptography.fernet import Fernet
+        import base64
+
+        fernet_key = base64.urlsafe_b64encode(hashed_key[:32])
+
+        # Write it to a file
+        with open("final_key_bob.txt", "wb") as f:  
+            f.write(fernet_key)
+            print("Final key saved to final_key_bob.txt")
 if __name__ == "__main__":
     main()
